@@ -29,14 +29,11 @@ def extract_transcript_details(youtube_video_url):
         return transcript
 
     except TranscriptsDisabled:
-        # Handle if transcripts are disabled for the video
-        return "Transcripts are disabled for this video. Please try another video."
+        return None, "Transcripts are disabled for this video."
     except VideoUnavailable:
-        # Handle if video is unavailable or private
-        return "This video is unavailable or private. Please check the link."
+        return None, "This video is unavailable or private. Please check the link."
     except Exception as e:
-        # Generic error handling
-        return f"An error occurred: {str(e)}"
+        return None, f"An error occurred: {str(e)}"
 
 # Function to generate content using Google Gemini Pro
 def generate_gemini_content(transcript_text, prompt):
@@ -46,7 +43,6 @@ def generate_gemini_content(transcript_text, prompt):
         response = model.generate_content(prompt + transcript_text)
         return response.text
     except Exception as e:
-        # Handle API errors
         return f"An error occurred while generating the summary: {str(e)}"
 
 # Streamlit app interface
@@ -60,13 +56,24 @@ if youtube_link:
 
 if st.button("Get Detailed Notes"):
     # Fetch transcript details
-    transcript_text = extract_transcript_details(youtube_link)
+    transcript_text, error_message = extract_transcript_details(youtube_link)
 
-    if "An error occurred" in transcript_text or "Transcripts are disabled" in transcript_text:
-        st.error(transcript_text)
+    if transcript_text is None:
+        # If there's an error, display it
+        st.error(error_message)
+        st.markdown("### Alternative Options:")
+        st.write("1. Try using a different video with transcripts enabled.")
+        st.write("2. Upload a transcript file or manually input the transcript below.")
+        
+        # Option to manually input transcript
+        manual_transcript = st.text_area("Manually Input Transcript")
+        
+        if manual_transcript:
+            summary = generate_gemini_content(manual_transcript, prompt)
+            st.markdown("## Detailed Notes:")
+            st.write(summary)
     else:
         # Generate the summary using the Gemini API
         summary = generate_gemini_content(transcript_text, prompt)
-        
         st.markdown("## Detailed Notes:")
         st.write(summary)
