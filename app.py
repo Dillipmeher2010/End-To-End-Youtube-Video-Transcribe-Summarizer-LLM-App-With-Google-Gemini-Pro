@@ -26,7 +26,7 @@ def extract_transcript_details(youtube_video_url):
         # Combine transcript text into one string
         transcript = " ".join([i["text"] for i in transcript_text])
 
-        return transcript
+        return transcript, None  # Return transcript and no error message
 
     except TranscriptsDisabled:
         return None, "Transcripts are disabled for this video."
