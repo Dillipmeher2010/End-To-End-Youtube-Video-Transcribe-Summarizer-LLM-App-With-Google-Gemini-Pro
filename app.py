@@ -1,59 +1,72 @@
 import streamlit as st
 from dotenv import load_dotenv
-
-load_dotenv() ##load all the nevironment variables
 import os
 import google.generativeai as genai
+from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, VideoUnavailable
 
-from youtube_transcript_api import YouTubeTranscriptApi
+# Load environment variables
+load_dotenv()
 
+# Configure Google Gemini API key
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
-prompt="""You are Yotube video summarizer. You will be taking the transcript text
-and summarizing the entire video and providing the important summary in points
-within 250 words. Please provide the summary of the text given here:  """
+# Define the summarization prompt
+prompt = """You are a YouTube video summarizer. You will take the transcript text 
+and summarize the entire video, providing the important points in 250 words or less. 
+Please provide the summary of the text given here: """
 
-
-## getting the transcript data from yt videos
+# Function to extract transcript details from YouTube video
 def extract_transcript_details(youtube_video_url):
     try:
-        video_id=youtube_video_url.split("=")[1]
+        video_id = youtube_video_url.split("=")[1]
         
-        transcript_text=YouTubeTranscriptApi.get_transcript(video_id)
+        # Fetch transcript using YouTubeTranscriptApi
+        transcript_text = YouTubeTranscriptApi.get_transcript(video_id)
 
-        transcript = ""
-        for i in transcript_text:
-            transcript += " " + i["text"]
+        # Combine transcript text into one string
+        transcript = " ".join([i["text"] for i in transcript_text])
 
         return transcript
 
+    except TranscriptsDisabled:
+        # Handle if transcripts are disabled for the video
+        return "Transcripts are disabled for this video. Please try another video."
+    except VideoUnavailable:
+        # Handle if video is unavailable or private
+        return "This video is unavailable or private. Please check the link."
     except Exception as e:
-        raise e
-    
-## getting the summary based on Prompt from Google Gemini Pro
-def generate_gemini_content(transcript_text,prompt):
+        # Generic error handling
+        return f"An error occurred: {str(e)}"
 
-    model=genai.GenerativeModel("gemini-pro")
-    response=model.generate_content(prompt+transcript_text)
-    return response.text
+# Function to generate content using Google Gemini Pro
+def generate_gemini_content(transcript_text, prompt):
+    try:
+        # Use the Gemini API to generate content
+        model = genai.GenerativeModel("gemini-pro")
+        response = model.generate_content(prompt + transcript_text)
+        return response.text
+    except Exception as e:
+        # Handle API errors
+        return f"An error occurred while generating the summary: {str(e)}"
 
+# Streamlit app interface
 st.title("YouTube Transcript to Detailed Notes Converter")
 youtube_link = st.text_input("Enter YouTube Video Link:")
 
 if youtube_link:
+    # Extract the video ID and display a thumbnail
     video_id = youtube_link.split("=")[1]
-    print(video_id)
     st.image(f"http://img.youtube.com/vi/{video_id}/0.jpg", use_column_width=True)
 
 if st.button("Get Detailed Notes"):
-    transcript_text=extract_transcript_details(youtube_link)
+    # Fetch transcript details
+    transcript_text = extract_transcript_details(youtube_link)
 
-    if transcript_text:
-        summary=generate_gemini_content(transcript_text,prompt)
+    if "An error occurred" in transcript_text or "Transcripts are disabled" in transcript_text:
+        st.error(transcript_text)
+    else:
+        # Generate the summary using the Gemini API
+        summary = generate_gemini_content(transcript_text, prompt)
+        
         st.markdown("## Detailed Notes:")
         st.write(summary)
-
-
-
-
-
