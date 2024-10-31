@@ -2,7 +2,7 @@ import streamlit as st
 from dotenv import load_dotenv
 import os
 import google.generativeai as genai
-from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
+from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound, VideoUnavailable
 
 load_dotenv()  # Load all the environment variables
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
@@ -26,10 +26,15 @@ def extract_transcript_details(youtube_video_url, language='en'):
         return transcript
 
     except NoTranscriptFound:
-        st.error(f"No transcripts found for the requested language: {language}.")
+        available_languages = YouTubeTranscriptApi.list_transcripts(video_id)
+        available_langs = [transcript.language for transcript in available_languages]
+        st.error(f"No transcripts found for the requested language: {language}. Available languages: {available_langs}.")
         return None
     except TranscriptsDisabled:
         st.error("Transcripts are disabled for this video.")
+        return None
+    except VideoUnavailable:
+        st.error("The requested video is unavailable.")
         return None
     except Exception as e:
         st.error(f"Error fetching transcript: {str(e)}")
