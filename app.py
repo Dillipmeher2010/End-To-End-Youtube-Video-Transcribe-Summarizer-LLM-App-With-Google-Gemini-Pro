@@ -2,7 +2,7 @@ import streamlit as st
 from dotenv import load_dotenv
 import os
 import google.generativeai as genai
-from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
 
 load_dotenv()  # Load all the environment variables
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
@@ -12,10 +12,12 @@ and summarizing the entire video, providing the important summary in points
 within 250 words. Please provide the summary of the text given here:  """
 
 # Getting the transcript data from YouTube videos
-def extract_transcript_details(youtube_video_url):
+def extract_transcript_details(youtube_video_url, language='en'):
     try:
         video_id = youtube_video_url.split("v=")[1].split("&")[0]  # Support different formats
-        transcript_text = YouTubeTranscriptApi.get_transcript(video_id)
+        
+        # Get the transcript for the specified language
+        transcript_text = YouTubeTranscriptApi.get_transcript(video_id, languages=[language])
 
         transcript = ""
         for i in transcript_text:
@@ -23,6 +25,12 @@ def extract_transcript_details(youtube_video_url):
 
         return transcript
 
+    except NoTranscriptFound:
+        st.error(f"No transcripts found for the requested language: {language}.")
+        return None
+    except TranscriptsDisabled:
+        st.error("Transcripts are disabled for this video.")
+        return None
     except Exception as e:
         st.error(f"Error fetching transcript: {str(e)}")
         return None
@@ -36,6 +44,7 @@ def generate_gemini_content(transcript_text, prompt):
 # Streamlit app
 st.title("YouTube Transcript to Detailed Notes Converter")
 youtube_link = st.text_input("Enter YouTube Video Link:")
+language = st.selectbox("Select Transcript Language:", ["en", "hi", "es", "fr", "de", "pt"])  # Add more languages as needed
 
 if youtube_link:
     try:
@@ -46,7 +55,7 @@ if youtube_link:
 
 if st.button("Get Detailed Notes"):
     if youtube_link:
-        transcript_text = extract_transcript_details(youtube_link)
+        transcript_text = extract_transcript_details(youtube_link, language)
 
         if transcript_text:
             summary = generate_gemini_content(transcript_text, prompt)
